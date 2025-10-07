@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Offline Scheduling App</title>
+<style>
+  /* Reset some defaults */
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    min-height: 100vh;
+    margin: 0;
+    padding: 20px;
+    color: #fff;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+  }
+
+  .container {
+    background: #1f1f38;
+    border-radius: 15px;
+    box-shadow: 0 15px 30px rgba(0,0,0,0.5);
+    max-width: 600px;
+    width: 100%;
+    padding: 30px 40px;
+  }
+
+  h1 {
+    text-align: center;
+    margin-bottom: 25px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #e0e0ff;
+  }
+
+  form {
+    margin-bottom: 30px;
+  }
+
+  label {
+    display: block;
+    margin-top: 18px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+  }
+
+  input[type="text"],
+  input[type="datetime-local"] {
+    width: 100%;
+    padding: 12px 15px;
+    margin-top: 6px;
+    border-radius: 8px;
+    border: none;
+    background: #2a2a55;
+    color: #f0f0f5;
+    font-size: 1em;
+    transition: background 0.3s ease;
+  }
+
+  input[type="text"]:focus,
+  input[type="datetime-local"]:focus {
+    background: #3a3a75;
+    outline: none;
+  }
+
+  button[type="submit"] {
+    margin-top: 25px;
+    width: 100%;
+    padding: 14px;
+    font-weight: 700;
+    font-size: 1.1em;
+    background: #764ba2;
+    border: none;
+    border-radius: 50px;
+    color: #fff;
+    cursor: pointer;
+    transition: background 0.3s ease;
+    box-shadow: 0 5px 15px rgba(118,75,162,0.6);
+  }
+  button[type="submit"]:hover {
+    background: #8e66c4;
+  }
+
+  .error {
+    color: #ff6b6b;
+    margin-top: 12px;
+    font-weight: 600;
+    text-align: center;
+    min-height: 22px;
+  }
+
+  h2 {
+    margin-bottom: 15px;
+    color: #d0d0ff;
+    border-bottom: 2px solid #764ba2;
+    padding-bottom: 5px;
+    font-weight: 700;
+  }
+
+  ul {
+    list-style: none;
+    padding: 0;
+    max-height: 350px;
+    overflow-y: auto;
+  }
+
+  li {
+    background: #2a2a55;
+    border-radius: 12px;
+    margin-bottom: 12px;
+    padding: 18px 22px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: background 0.3s ease;
+  }
+  li:hover {
+    background: #3a3a75;
+  }
+
+  .schedule-item > div:first-child {
+    line-height: 1.4;
+  }
+  .schedule-item strong {
+    color: #a3a3f9;
+  }
+
+  .btn-inline {
+    background: #764ba2;
+    color: #fff;
+    border: none;
+    border-radius: 50px;
+    padding: 8px 14px;
+    margin-left: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.3s ease;
+    box-shadow: 0 4px 12px rgba(118,75,162,0.6);
+  }
+  .btn-inline:hover {
+    background: #8e66c4;
+  }
+
+  /* Scrollbar styling for schedule list */
+  ul::-webkit-scrollbar {
+    width: 8px;
+  }
+  ul::-webkit-scrollbar-track {
+    background: #1f1f38;
+    border-radius: 10px;
+  }
+  ul::-webkit-scrollbar-thumb {
+    background: #764ba2;
+    border-radius: 10px;
+  }
+
+  /* Export/Import button container */
+  .file-buttons {
+    margin-top: 20px;
+    text-align: center;
+  }
+  .file-buttons button {
+    width: 180px;
+  }
+
+  /* Responsive */
+  @media (max-width: 640px) {
+    .container {
+      padding: 20px;
+    }
+    button[type="submit"],
+    .btn-inline {
+      width: 100%;
+      margin: 10px 0 0 0;
+    }
+    .schedule-item {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    .schedule-item > div:last-child {
+      margin-top: 12px;
+    }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <h1>Offline Scheduling App</h1>
+
+  <form id="schedule-form">
+    <label for="user">User:</label>
+    <input type="text" id="user" required placeholder="User Name" autocomplete="off" />
+
+    <label for="start">Start Time:</label>
+    <input type="datetime-local" id="start" required />
+
+    <label for="end">End Time:</label>
+    <input type="datetime-local" id="end" required />
+
+    <button type="submit">Add Schedule</button>
+    <p class="error" id="error-msg"></p>
+  </form>
+
+  <h2>Schedules</h2>
+  <ul id="schedule-list"></ul>
+
+  <div class="file-buttons">
+    <button id="export-btn" class="btn-inline">Export Schedules</button>
+    <input type="file" id="import-file" style="display:none" accept=".json" />
+    <button id="import-btn" class="btn-inline">Import Schedules</button>
+  </div>
+</div>
+
+<script>
+  let schedules = [];
+
+  const form = document.getElementById('schedule-form');
+  const userInput = document.getElementById('user');
+  const startInput = document.getElementById('start');
+  const endInput = document.getElementById('end');
+  const errorMsg = document.getElementById('error-msg');
+  const scheduleList = document.getElementById('schedule-list');
+  const exportBtn = document.getElementById('export-btn');
+  const importBtn = document.getElementById('import-btn');
+  const importFileInput = document.getElementById('import-file');
+
+  function loadSchedules() {
+    const data = localStorage.getItem('schedules');
+    if (data) {
+      schedules = JSON.parse(data);
+    }
+  }
+
+  function saveSchedules() {
+    localStorage.setItem('schedules', JSON.stringify(schedules));
+  }
+
+  function renderSchedules() {
+    scheduleList.innerHTML = '';
+    if (schedules.length === 0) {
+      scheduleList.innerHTML = '<li style="color:#ccc; text-align:center;">No schedules yet.</li>';
+      return;
+    }
+    schedules.forEach((s, index) => {
+      const li = document.createElement('li');
+      li.innerHTML = `
+        <div class="schedule-item">
+          <div>
+            <strong>User:</strong> ${s.user}<br/>
+            <strong>Start:</strong> ${new Date(s.start).toLocaleString()}<br/>
+            <strong>End:</strong> ${new Date(s.end).toLocaleString()}
+          </div>
+          <div>
+            <button onclick="editSchedule(${index})" class="btn-inline">Edit</button>
+            <button onclick="deleteSchedule(${index})" class="btn-inline">Delete</button>
+          </div>
+        </div>
+      `;
+      scheduleList.appendChild(li);
+    });
+  }
+
+  function hasConflict(newSchedule, ignoreIndex = -1) {
+    const newStart = new Date(newSchedule.start);
+    const newEnd = new Date(newSchedule.end);
+    for (let i = 0; i < schedules.length; i++) {
+      if (i === ignoreIndex) continue;
+      const s = schedules[i];
+      if (s.user !== newSchedule.user) continue;
+      const existingStart = new Date(s.start);
+      const existingEnd = new Date(s.end);
+      if (newStart < existingEnd && newEnd > existingStart) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  let editIndex = -1;
+  form.addEventListener('submit', e => {
+    e.preventDefault();
+    errorMsg.textContent = '';
+
+    const newSchedule = {
+      user: userInput.value.trim(),
+      start: startInput.value,
+      end: endInput.value,
+    };
+
+    if (!newSchedule.user || !newSchedule.start || !newSchedule.end) {
+      errorMsg.textContent = 'Please fill all fields.';
+      return;
+    }
+
+    if (new Date(newSchedule.end) <= new Date(newSchedule.start)) {
+      errorMsg.textContent = 'End time must be after start time.';
+      return;
+    }
+
+    if (hasConflict(newSchedule, editIndex)) {
+      errorMsg.textContent = 'Schedule conflict detected for this user.';
+      return;
+    }
+
+    if (editIndex === -1) {
+      schedules.push(newSchedule);
+    } else {
+      schedules[editIndex] = newSchedule;
+      editIndex = -1;
+      form.querySelector('button[type="submit"]').textContent = 'Add Schedule';
+    }
+
+    saveSchedules();
+    renderSchedules();
+    form.reset();
+  });
+
+  window.deleteSchedule = function(index) {
+    if (confirm('Delete this schedule?')) {
+      schedules.splice(index, 1);
+      saveSchedules();
+      renderSchedules();
+      if (editIndex === index) {
+        editIndex = -1;
+        form.reset();
+        form.querySelector('button[type="submit"]').textContent = 'Add Schedule';
+        errorMsg.textContent = '';
+      }
+    }
+  };
+
+  window.editSchedule = function(index) {
+    const s = schedules[index];
+    userInput.value = s.user;
+    startInput.value = s.start;
+    endInput.value = s.end;
+    editIndex = index;
+    form.querySelector('button[type="submit"]').textContent = 'Update Schedule';
+    errorMsg.textContent = '';
+  };
+
+  exportBtn.addEventListener('click', () => {
+    const dataStr = JSON.stringify(schedules, null, 2);
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'schedules.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  importBtn.addEventListener('click', () => importFileInput.click());
+
+  importFileInput.addEventListener('change', () => {
+    const file = importFileInput.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const imported = JSON.parse(e.target.result);
+        if (!Array.isArray(imported)) {
+          alert('Invalid file format: must be an array.');
+          return;
+        }
+        schedules = imported;
+        saveSchedules();
+        renderSchedules();
+        form.reset();
+        editIndex = -1;
+        errorMsg.textContent = '';
+        alert('Schedules imported successfully!');
+      } catch (err) {
+        alert('Error reading file: ' + err.message);
+      }
+    };
+    reader.readAsText(file);
+    importFileInput.value = '';
+  });
+
+  loadSchedules();
+  renderSchedules();
+</script>
+
+</body>
+</html>
