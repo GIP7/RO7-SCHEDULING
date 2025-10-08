@@ -1,396 +1,827 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Offline Scheduling App</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Scheduling System — Enhanced (No DB)</title>
 <style>
-  /* Reset some defaults */
-  * {
-    box-sizing: border-box;
+  :root{
+    --bg:#061323; --card:#071829; --accent:#68b0ff; --muted:#9fb0c8; --danger:#ff6b6b;
+    --glass: rgba(255,255,255,0.025);
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    --radius:12px;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0; min-height:100vh; background:
+    radial-gradient(800px 300px at 10% 10%, rgba(104,176,255,0.06), transparent 10%),
+    linear-gradient(180deg,#041020 0%, #071423 100%);
+    color:#eaf5ff; display:flex; align-items:flex-start; justify-content:center; padding:26px;
   }
 
-  body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: linear-gradient(135deg, #667eea, #764ba2);
-    min-height: 100vh;
-    margin: 0;
-    padding: 20px;
-    color: #fff;
-    display: flex;
-    justify-content: center;
-    align-items: flex-start;
+  .app{width:100%; max-width:1150px;}
+  .card{
+    background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+    border-radius:var(--radius); padding:18px; box-shadow: 0 8px 30px rgba(2,8,23,0.6);
+    border:1px solid rgba(255,255,255,0.03);
   }
 
-  .container {
-    background: #1f1f38;
-    border-radius: 15px;
-    box-shadow: 0 15px 30px rgba(0,0,0,0.5);
-    max-width: 600px;
-    width: 100%;
-    padding: 30px 40px;
-  }
+  header.app-header{display:flex; justify-content:space-between; align-items:center; margin-bottom:12px}
+  header h1{font-size:18px; margin:0; color:var(--accent)}
+  .muted{color:var(--muted); font-size:13px}
+  .columns{display:grid; grid-template-columns: 360px 1fr; gap:18px}
+  .auth{max-width:420px; margin:0 auto}
 
-  h1 {
-    text-align: center;
-    margin-bottom: 25px;
-    font-weight: 700;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    color: #e0e0ff;
+  label{display:block; font-size:13px; margin-bottom:6px; color:var(--muted)}
+  input[type="text"], input[type="email"], input[type="password"], input[type="datetime-local"], select, textarea{
+    width:100%; padding:10px 12px; border-radius:10px; border:1px solid rgba(255,255,255,0.04); background:var(--glass);
+    color:inherit; outline:none; font-size:14px;
   }
+  textarea{min-height:90px; resize:vertical}
+  .form-field{margin-bottom:10px}
+  .btn{cursor:pointer; padding:10px 12px; border-radius:10px; border:0; background:var(--accent); color:#041b2b; font-weight:700}
+  .btn-ghost{background:transparent; border:1px solid rgba(255,255,255,0.04); color:var(--accent); font-weight:600}
+  .danger{background:var(--danger); color:#fff}
+  .small{font-size:13px}
+  .link{color:var(--accent); cursor:pointer; text-decoration:underline; font-size:13px}
 
-  form {
-    margin-bottom: 30px;
-  }
+  .topbar{display:flex; gap:10px; align-items:center; margin-bottom:14px}
+  .search{flex:1; display:flex; gap:8px}
+  .search input{flex:1}
+  .controls{display:flex; gap:8px; align-items:center}
+  table{width:100%; border-collapse:collapse; margin-top:12px}
+  th, td{padding:10px; text-align:left; border-bottom:1px dashed rgba(255,255,255,0.03); font-size:13px}
+  th{color:var(--muted); font-weight:600; font-size:12px}
+  .row-actions button{margin-right:6px;}
+  .badge{display:inline-block;padding:6px 8px;border-radius:999px;background:rgba(255,255,255,0.03);font-size:12px}
+  .empty{padding:36px; text-align:center; color:var(--muted)}
+  .user-pill{display:inline-flex; gap:8px; align-items:center; padding:6px 8px; border-radius:8px; background:rgba(255,255,255,0.02); font-size:13px}
+  footer{margin-top:12px; display:flex; justify-content:space-between; align-items:center; color:var(--muted); font-size:13px}
 
-  label {
-    display: block;
-    margin-top: 18px;
-    font-weight: 600;
-    letter-spacing: 0.05em;
-  }
+  /* modal animations */
+  .modal-backdrop{position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(2,6,23,0.6); z-index:1000; opacity:0; pointer-events:none; transition:opacity .22s ease}
+  .modal-backdrop.show{opacity:1; pointer-events:auto}
+  .modal{width:100%; max-width:760px; border-radius:12px; padding:18px; transform:translateY(12px) scale(.995); opacity:0; transition:all .28s cubic-bezier(.2,.9,.3,1)}
+  .modal-backdrop.show .modal{transform:translateY(0) scale(1); opacity:1}
 
-  input[type="text"],
-  input[type="datetime-local"] {
-    width: 100%;
-    padding: 12px 15px;
-    margin-top: 6px;
-    border-radius: 8px;
-    border: none;
-    background: #2a2a55;
-    color: #f0f0f5;
-    font-size: 1em;
-    transition: background 0.3s ease;
-  }
+  /* toast */
+  .toasts{position:fixed; right:18px; top:18px; display:flex; flex-direction:column; gap:10px; z-index:1200}
+  .toast{background:#062533; padding:10px 12px; border-radius:10px; box-shadow:0 6px 20px rgba(0,0,0,0.6); border:1px solid rgba(255,255,255,0.03)}
+  .toast.success{border-left:4px solid #6ee7b7}
+  .toast.error{border-left:4px solid #ff9b9b}
 
-  input[type="text"]:focus,
-  input[type="datetime-local"]:focus {
-    background: #3a3a75;
-    outline: none;
-  }
+  /* inline validation */
+  .field-error{color:#ffb4b4; font-size:12px; margin-top:6px}
 
-  button[type="submit"] {
-    margin-top: 25px;
-    width: 100%;
-    padding: 14px;
-    font-weight: 700;
-    font-size: 1.1em;
-    background: #764ba2;
-    border: none;
-    border-radius: 50px;
-    color: #fff;
-    cursor: pointer;
-    transition: background 0.3s ease;
-    box-shadow: 0 5px 15px rgba(118,75,162,0.6);
-  }
-  button[type="submit"]:hover {
-    background: #8e66c4;
-  }
+  .grid-2{display:grid; grid-template-columns:1fr 1fr; gap:8px}
 
-  .error {
-    color: #ff6b6b;
-    margin-top: 12px;
-    font-weight: 600;
-    text-align: center;
-    min-height: 22px;
-  }
-
-  h2 {
-    margin-bottom: 15px;
-    color: #d0d0ff;
-    border-bottom: 2px solid #764ba2;
-    padding-bottom: 5px;
-    font-weight: 700;
-  }
-
-  ul {
-    list-style: none;
-    padding: 0;
-    max-height: 350px;
-    overflow-y: auto;
-  }
-
-  li {
-    background: #2a2a55;
-    border-radius: 12px;
-    margin-bottom: 12px;
-    padding: 18px 22px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    transition: background 0.3s ease;
-  }
-  li:hover {
-    background: #3a3a75;
-  }
-
-  .schedule-item > div:first-child {
-    line-height: 1.4;
-  }
-  .schedule-item strong {
-    color: #a3a3f9;
-  }
-
-  .btn-inline {
-    background: #764ba2;
-    color: #fff;
-    border: none;
-    border-radius: 50px;
-    padding: 8px 14px;
-    margin-left: 10px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.3s ease;
-    box-shadow: 0 4px 12px rgba(118,75,162,0.6);
-  }
-  .btn-inline:hover {
-    background: #8e66c4;
-  }
-
-  /* Scrollbar styling for schedule list */
-  ul::-webkit-scrollbar {
-    width: 8px;
-  }
-  ul::-webkit-scrollbar-track {
-    background: #1f1f38;
-    border-radius: 10px;
-  }
-  ul::-webkit-scrollbar-thumb {
-    background: #764ba2;
-    border-radius: 10px;
-  }
-
-  /* Export/Import button container */
-  .file-buttons {
-    margin-top: 20px;
-    text-align: center;
-  }
-  .file-buttons button {
-    width: 180px;
-  }
-
-  /* Responsive */
-  @media (max-width: 640px) {
-    .container {
-      padding: 20px;
-    }
-    button[type="submit"],
-    .btn-inline {
-      width: 100%;
-      margin: 10px 0 0 0;
-    }
-    .schedule-item {
-      flex-direction: column;
-      align-items: flex-start;
-    }
-    .schedule-item > div:last-child {
-      margin-top: 12px;
-    }
-  }
+  @media (max-width:920px){ .columns{grid-template-columns:1fr} header.app-header{flex-direction:column; align-items:flex-start; gap:12px} }
 </style>
 </head>
 <body>
+<div class="app">
 
-<div class="container">
-  <h1>Offline Scheduling App</h1>
+  <!-- toasts -->
+  <div id="toasts" class="toasts" aria-live="polite"></div>
 
-  <form id="schedule-form">
-    <label for="user">User:</label>
-    <input type="text" id="user" required placeholder="User Name" autocomplete="off" />
+  <!-- AUTH -->
+  <div id="auth-screen" class="card auth" aria-hidden="false">
+    <header class="app-header">
+      <div>
+        <h1>Scheduling System — Local</h1>
+        <div class="muted">Single-file • localStorage • enhanced</div>
+      </div>
+    </header>
 
-    <label for="start">Start Time:</label>
-    <input type="datetime-local" id="start" required />
+    <div id="auth-forms">
+      <!-- LOGIN -->
+      <div id="login-form">
+        <h2 style="margin-top:0">Log in</h2>
+        <div class="form-field">
+          <label for="login-email">Email</label>
+          <input id="login-email" type="email" placeholder="you@example.com" />
+          <div id="login-email-err" class="field-error" style="display:none"></div>
+        </div>
+        <div class="form-field">
+          <label for="login-password">Password</label>
+          <input id="login-password" type="password" placeholder="password" />
+          <div id="login-pass-err" class="field-error" style="display:none"></div>
+        </div>
+        <div style="display:flex; gap:8px; align-items:center; margin-top:8px;">
+          <button id="btn-login" class="btn">Log in</button>
+          <button id="show-signup" class="btn-ghost">Create account</button>
+        </div>
+        <p class="small muted" style="margin-top:10px">Seeded test account: <strong>admin@example.com</strong> / <strong>adminpass</strong></p>
+      </div>
 
-    <label for="end">End Time:</label>
-    <input type="datetime-local" id="end" required />
-
-    <button type="submit">Add Schedule</button>
-    <p class="error" id="error-msg"></p>
-  </form>
-
-  <h2>Schedules</h2>
-  <ul id="schedule-list"></ul>
-
-  <div class="file-buttons">
-    <button id="export-btn" class="btn-inline">Export Schedules</button>
-    <input type="file" id="import-file" style="display:none" accept=".json" />
-    <button id="import-btn" class="btn-inline">Import Schedules</button>
+      <!-- SIGNUP -->
+      <div id="signup-form" style="display:none">
+        <h2 style="margin-top:0">Sign up</h2>
+        <div class="form-field">
+          <label for="signup-name">Full name</label>
+          <input id="signup-name" type="text" placeholder="Jane Doe" />
+          <div id="signup-name-err" class="field-error" style="display:none"></div>
+        </div>
+        <div class="form-field">
+          <label for="signup-email">Email</label>
+          <input id="signup-email" type="email" placeholder="you@example.com" />
+          <div id="signup-email-err" class="field-error" style="display:none"></div>
+        </div>
+        <div class="form-field">
+          <label for="signup-password">Password</label>
+          <input id="signup-password" type="password" placeholder="choose a password" />
+          <div id="signup-pass-err" class="field-error" style="display:none"></div>
+        </div>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <button id="btn-signup" class="btn">Create account</button>
+          <button id="show-login" class="btn-ghost">Back to login</button>
+        </div>
+        <p class="muted small" style="margin-top:10px">Accounts are stored locally in your browser only.</p>
+      </div>
+    </div>
   </div>
+
+  <!-- DASHBOARD -->
+  <div id="dashboard" class="card" style="display:none">
+    <header class="app-header">
+      <div>
+        <h1>Schedule Manager</h1>
+        <div id="welcome" class="muted">Welcome — <span id="current-user-name"></span></div>
+      </div>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <div id="user-count" class="muted"></div>
+        <button id="btn-logout" class="btn-ghost">Log out</button>
+      </div>
+    </header>
+
+    <div class="topbar">
+      <div class="search">
+        <input id="search-input" placeholder="Search by company, parties, assigned user, description..." />
+        <button id="btn-clear-search" class="btn-ghost">Clear</button>
+      </div>
+      <div class="controls">
+        <button id="btn-new-schedule" class="btn">+ New</button>
+        <div style="position:relative">
+          <button id="btn-export-json" class="btn-ghost">Export JSON</button>
+          <input id="import-json-file" type="file" accept="application/json" style="display:none" />
+        </div>
+        <button id="btn-export-csv" class="btn-ghost">Export CSV</button>
+        <button id="btn-export-ics" class="btn-ghost">Export ICS</button>
+      </div>
+    </div>
+
+    <div class="columns">
+      <!-- left column -->
+      <div>
+        <div id="left-panel" class="card" style="padding:12px;">
+          <h3 style="margin-top:0">Users (registered)</h3>
+          <div id="users-list" style="display:flex; flex-direction:column; gap:8px; margin-bottom:12px"></div>
+
+          <div style="border-top:1px dashed rgba(255,255,255,0.03); padding-top:10px; margin-top:8px">
+            <h3 style="margin:0 0 8px 0">Quick create</h3>
+            <div class="form-field">
+              <label>Company</label>
+              <input id="quick-company" type="text" placeholder="Company name" />
+              <div id="quick-company-err" class="field-error" style="display:none"></div>
+            </div>
+            <div class="form-field">
+              <label>Requesting Party</label>
+              <input id="quick-requesting" type="text" placeholder="Requester" />
+              <div id="quick-requesting-err" class="field-error" style="display:none"></div>
+            </div>
+            <div class="form-field">
+              <label>Responding Party</label>
+              <input id="quick-responding" type="text" placeholder="Responder" />
+              <div id="quick-responding-err" class="field-error" style="display:none"></div>
+            </div>
+            <div class="form-field">
+              <label>Assign user</label>
+              <select id="quick-assign"></select>
+            </div>
+            <div style="display:flex; gap:8px;">
+              <button id="btn-quick-add" class="btn">Add</button>
+              <button id="btn-quick-clear" class="btn-ghost">Clear</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- right column: table -->
+      <div>
+        <div id="table-panel" class="card" style="padding:12px;">
+          <h3 style="margin-top:0">Schedules</h3>
+          <div id="table-container"></div>
+        </div>
+      </div>
+    </div>
+
+    <footer>
+      <div class="muted">All data saved locally in this browser (localStorage).</div>
+      <div class="muted">Made with ♥</div>
+    </footer>
+  </div>
+
+  <!-- MODAL ROOT -->
+  <div id="modal-root" style="display:none"></div>
+
 </div>
 
 <script>
-  let schedules = [];
+/* Enhanced single-file scheduling system
+   - JSON export/import (merge or overwrite)
+   - CSV export (schedules)
+   - ICS export (schedules)
+   - Modal animations, inline validation, toasts
+   Storage keys same as before:
+    - ss_users, ss_currentUser, ss_schedules
+*/
 
-  const form = document.getElementById('schedule-form');
-  const userInput = document.getElementById('user');
-  const startInput = document.getElementById('start');
-  const endInput = document.getElementById('end');
-  const errorMsg = document.getElementById('error-msg');
-  const scheduleList = document.getElementById('schedule-list');
-  const exportBtn = document.getElementById('export-btn');
-  const importBtn = document.getElementById('import-btn');
-  const importFileInput = document.getElementById('import-file');
+(function(){
+  // small helpers
+  const $ = id => document.getElementById(id);
+  const qs = (sel, ctx=document) => Array.from((ctx||document).querySelectorAll(sel));
+  const uid = () => 'id_' + Math.random().toString(36).slice(2,9);
+  const LS = {
+    get(k){ try{ return JSON.parse(localStorage.getItem(k)); }catch(e){ return null; } },
+    set(k,v){ localStorage.setItem(k, JSON.stringify(v)); }
+  };
 
-  function loadSchedules() {
-    const data = localStorage.getItem('schedules');
-    if (data) {
-      schedules = JSON.parse(data);
+  // keys
+  const KEY_USERS = 'ss_users';
+  const KEY_CURRENT = 'ss_currentUser';
+  const KEY_SCHED = 'ss_schedules';
+
+  // seed
+  function seedIfNeeded(){
+    if(!LS.get(KEY_USERS) || LS.get(KEY_USERS).length === 0){
+      const admin = { id: uid(), name:'Administrator', email:'admin@example.com', password: 'adminpass' };
+      LS.set(KEY_USERS, [admin]);
     }
+    if(!LS.get(KEY_SCHED)) LS.set(KEY_SCHED, []);
+  }
+  seedIfNeeded();
+
+  // Toasts
+  const toastsEl = $('toasts');
+  function toast(text, type='success', ms=3600){
+    const node = document.createElement('div');
+    node.className = 'toast ' + (type==='error' ? 'error':'success');
+    node.textContent = text;
+    toastsEl.appendChild(node);
+    setTimeout(()=> node.style.opacity = '0.0', ms - 400);
+    setTimeout(()=> node.remove(), ms);
   }
 
-  function saveSchedules() {
-    localStorage.setItem('schedules', JSON.stringify(schedules));
+  // escape
+  function escapeHtml(s){ return String(s || '').replace(/[&<>"']/g, (m)=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;', "'":'&#39;'}[m])); }
+
+  // DOM refs
+  const authScreen = $('auth-screen');
+  const dashboard = $('dashboard');
+  const currentUserNameEl = $('current-user-name');
+  const userCountEl = $('user-count');
+  const usersListEl = $('users-list');
+  const quickAssign = $('quick-assign');
+  const tableContainer = $('table-container');
+
+  // Auth toggles
+  $('show-signup').addEventListener('click', ()=>{ $('login-form').style.display='none'; $('signup-form').style.display='block'; });
+  $('show-login').addEventListener('click', ()=>{ $('signup-form').style.display='none'; $('login-form').style.display='block'; });
+
+  // validation helpers
+  function showFieldError(id, msg){ const el = $(id); if(!el) return; el.textContent = msg; el.style.display = msg ? 'block' : 'none'; }
+  function clearAllFieldErrors(){ qs('.field-error').forEach(e=>e.style.display='none'); }
+
+  // Signup
+  $('btn-signup').addEventListener('click', ()=>{
+    clearAllFieldErrors();
+    const name = $('signup-name').value.trim();
+    const email = $('signup-email').value.trim().toLowerCase();
+    const password = $('signup-password').value;
+    let ok = true;
+    if(!name){ showFieldError('signup-name-err','Please enter your name'); ok=false; }
+    if(!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ showFieldError('signup-email-err','Enter a valid email'); ok=false; }
+    if(!password || password.length < 5){ showFieldError('signup-pass-err','Password must be at least 5 characters'); ok=false; }
+    if(!ok) return;
+
+    const users = LS.get(KEY_USERS) || [];
+    if(users.some(u=>u.email === email)){ showFieldError('signup-email-err','This email is already registered'); return; }
+    const newUser = { id: uid(), name, email, password };
+    users.push(newUser);
+    LS.set(KEY_USERS, users);
+    toast('Account created — you may now log in');
+    $('signup-name').value=''; $('signup-email').value=''; $('signup-password').value='';
+    $('signup-form').style.display='none'; $('login-form').style.display='block';
+    renderUsers();
+  });
+
+  // Login
+  $('btn-login').addEventListener('click', ()=>{
+    clearAllFieldErrors();
+    const email = $('login-email').value.trim().toLowerCase();
+    const password = $('login-password').value;
+    if(!email){ showFieldError('login-email-err','Enter email'); return; }
+    if(!password){ showFieldError('login-pass-err','Enter password'); return; }
+    const users = LS.get(KEY_USERS) || [];
+    const found = users.find(u=>u.email === email && u.password === password);
+    if(!found){ showFieldError('login-pass-err','Invalid email or password'); return; }
+    LS.set(KEY_CURRENT, found.id);
+    $('login-email').value=''; $('login-password').value='';
+    showDashboard();
+  });
+
+  // Logout
+  $('btn-logout').addEventListener('click', ()=>{
+    LS.set(KEY_CURRENT, null);
+    hideDashboard();
+    toast('Logged out', 'success', 1800);
+  });
+
+  // Quick add
+  $('btn-quick-add').addEventListener('click', ()=>{
+    clearAllFieldErrors();
+    const company = $('quick-company').value.trim();
+    const requesting = $('quick-requesting').value.trim();
+    const responding = $('quick-responding').value.trim();
+    const assignedTo = quickAssign.value || null;
+    let ok = true;
+    if(!company){ showFieldError('quick-company-err','Company is required'); ok=false; }
+    if(!requesting){ showFieldError('quick-requesting-err','Requester is required'); ok=false; }
+    if(!responding){ showFieldError('quick-responding-err','Responder is required'); ok=false; }
+    if(!ok) return;
+    const sched = { id: uid(), company, requesting, responding, assignedTo, datetime: new Date().toISOString(), description: '', createdAt: new Date().toISOString() };
+    const arr = LS.get(KEY_SCHED) || [];
+    arr.unshift(sched);
+    LS.set(KEY_SCHED, arr);
+    $('quick-company').value=''; $('quick-requesting').value=''; $('quick-responding').value='';
+    renderTable();
+    toast('Schedule added');
+  });
+  $('btn-quick-clear').addEventListener('click', ()=>{ $('quick-company').value=''; $('quick-requesting').value=''; $('quick-responding').value=''; clearAllFieldErrors(); });
+
+  // Search
+  $('search-input').addEventListener('input', renderTable);
+  $('btn-clear-search').addEventListener('click', ()=>{ $('search-input').value=''; renderTable(); });
+
+  // New schedule modal
+  $('btn-new-schedule').addEventListener('click', ()=>openModal());
+
+  // Export / Import JSON
+  $('btn-export-json').addEventListener('click', exportJSON);
+  $('import-json-file').addEventListener('change', importJSONFile);
+
+  // CSV / ICS export
+  $('btn-export-csv').addEventListener('click', exportCSV);
+  $('btn-export-ics').addEventListener('click', exportICS);
+
+  // render users
+  function renderUsers(){
+    const users = LS.get(KEY_USERS) || [];
+    usersListEl.innerHTML = '';
+    quickAssign.innerHTML = '<option value="">(Unassigned)</option>';
+    users.forEach(u=>{
+      const d = document.createElement('div');
+      d.className = 'user-pill';
+      d.innerHTML = `<div style="font-weight:700">${escapeHtml(u.name)}</div><div class="muted" style="font-size:12px">${escapeHtml(u.email)}</div>`;
+      usersListEl.appendChild(d);
+      const opt = document.createElement('option');
+      opt.value = u.id; opt.textContent = u.name + ' — ' + u.email;
+      quickAssign.appendChild(opt);
+    });
+    userCountEl.textContent = users.length + ' user(s)';
   }
 
-  function renderSchedules() {
-    scheduleList.innerHTML = '';
-    if (schedules.length === 0) {
-      scheduleList.innerHTML = '<li style="color:#ccc; text-align:center;">No schedules yet.</li>';
+  // render table
+  function renderTable(){
+    const schedules = LS.get(KEY_SCHED) || [];
+    const users = LS.get(KEY_USERS) || [];
+    const qtext = $('search-input').value.trim().toLowerCase();
+    let filtered = schedules.slice();
+    if(qtext){
+      filtered = filtered.filter(s=>{
+        const assignedName = users.find(u=>u.id===s.assignedTo)?.name || '';
+        return (s.company||'').toLowerCase().includes(qtext) ||
+               (s.requesting||'').toLowerCase().includes(qtext) ||
+               (s.responding||'').toLowerCase().includes(qtext) ||
+               (s.description||'').toLowerCase().includes(qtext) ||
+               (assignedName||'').toLowerCase().includes(qtext);
+      });
+    }
+    if(filtered.length === 0){
+      tableContainer.innerHTML = '<div class="empty">No schedules yet. Create one with the "New" button or the quick form.</div>';
       return;
     }
-    schedules.forEach((s, index) => {
-      const li = document.createElement('li');
-      li.innerHTML = `
-        <div class="schedule-item">
-          <div>
-            <strong>User:</strong> ${s.user}<br/>
-            <strong>Start:</strong> ${new Date(s.start).toLocaleString()}<br/>
-            <strong>End:</strong> ${new Date(s.end).toLocaleString()}
+    const tbl = document.createElement('table');
+    const thead = document.createElement('thead');
+    thead.innerHTML = `<tr>
+      <th>Company</th><th>Requesting</th><th>Responding</th><th>Assigned</th><th>Date / Time</th><th>Description</th><th></th>
+    </tr>`;
+    tbl.appendChild(thead);
+    const tbody = document.createElement('tbody');
+    filtered.forEach(s=>{
+      const tr = document.createElement('tr');
+      const assigned = users.find(u=>u.id===s.assignedTo);
+      const assignedHtml = assigned ? `<div style="font-weight:700">${escapeHtml(assigned.name)}</div><div class="muted">${escapeHtml(assigned.email)}</div>` : '<div class="muted">Unassigned</div>';
+      const dt = s.datetime ? (new Date(s.datetime)).toLocaleString() : (new Date(s.createdAt)).toLocaleString();
+      tr.innerHTML = `<td><div style="font-weight:700">${escapeHtml(s.company)}</div></td>
+                      <td>${escapeHtml(s.requesting)}</td>
+                      <td>${escapeHtml(s.responding)}</td>
+                      <td>${assignedHtml}</td>
+                      <td>${escapeHtml(dt)}</td>
+                      <td style="max-width:260px">${escapeHtml(s.description||'')}</td>
+                      <td class="row-actions">
+                        <button data-id="${s.id}" class="btn-ghost small btn-edit">Edit</button>
+                        <button data-id="${s.id}" class="danger small btn-delete">Delete</button>
+                      </td>`;
+      tbody.appendChild(tr);
+    });
+    tbl.appendChild(tbody);
+    tableContainer.innerHTML = ''; tableContainer.appendChild(tbl);
+
+    qs('.btn-edit', tableContainer).forEach(btn=> btn.addEventListener('click', e=>{
+      const id = e.currentTarget.dataset.id;
+      const s = (LS.get(KEY_SCHED) || []).find(a=>a.id===id);
+      if(s) openModal(s);
+    }));
+    qs('.btn-delete', tableContainer).forEach(btn=> btn.addEventListener('click', e=>{
+      const id = e.currentTarget.dataset.id;
+      showConfirm('Delete this schedule?', ()=>{
+        let arr = LS.get(KEY_SCHED) || [];
+        arr = arr.filter(x=>x.id!==id); LS.set(KEY_SCHED, arr); renderTable(); toast('Schedule deleted', 'success', 1800);
+      });
+    }));
+  }
+
+  // Modal utilities: showConfirm uses modal-style prompt
+  function showConfirm(message, onYes){
+    const modalRoot = $('modal-root');
+    modalRoot.style.display = 'block';
+    modalRoot.innerHTML = `<div class="modal-backdrop show">
+      <div class="card modal">
+        <h3 style="margin-top:0">${escapeHtml(message)}</h3>
+        <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:12px">
+          <button id="confirm-no" class="btn-ghost">Cancel</button>
+          <button id="confirm-yes" class="danger">Yes</button>
+        </div>
+      </div>
+    </div>`;
+    $('confirm-no').addEventListener('click', closeModal);
+    $('confirm-yes').addEventListener('click', ()=>{
+      try{ onYes && onYes(); } catch(e){ console.error(e); }
+      closeModal();
+    });
+    function closeModal(){ modalRoot.style.display='none'; modalRoot.innerHTML=''; }
+  }
+
+  // open modal for create/edit schedule
+  function openModal(schedule){
+    const users = LS.get(KEY_USERS) || [];
+    const modalRoot = $('modal-root');
+    modalRoot.style.display = 'block';
+    modalRoot.innerHTML = `
+      <div class="modal-backdrop show">
+        <div class="card modal">
+          <h3 style="margin-top:0">${schedule ? 'Edit Schedule' : 'New Schedule'}</h3>
+          <div class="grid-2">
+            <div class="form-field">
+              <label>Company</label>
+              <input id="m-company" type="text" value="${escapeHtml(schedule? schedule.company : '')}" />
+              <div id="m-company-err" class="field-error" style="display:none"></div>
+            </div>
+            <div class="form-field">
+              <label>Assign user</label>
+              <select id="m-assign"><option value="">(Unassigned)</option>
+                ${users.map(u=>`<option value="${u.id}" ${schedule && schedule.assignedTo===u.id ? 'selected':''}>${escapeHtml(u.name)} — ${escapeHtml(u.email)}</option>`).join('')}
+              </select>
+            </div>
+
+            <div class="form-field">
+              <label>Requesting Party</label>
+              <input id="m-requesting" type="text" value="${escapeHtml(schedule? schedule.requesting : '')}" />
+              <div id="m-requesting-err" class="field-error" style="display:none"></div>
+            </div>
+            <div class="form-field">
+              <label>Responding Party</label>
+              <input id="m-responding" type="text" value="${escapeHtml(schedule? schedule.responding : '')}" />
+              <div id="m-responding-err" class="field-error" style="display:none"></div>
+            </div>
+
+            <div style="grid-column:1/3" class="form-field">
+              <label>Date & Time</label>
+              <input id="m-datetime" type="datetime-local" value="${schedule && schedule.datetime ? localDatetimeValue(schedule.datetime) : ''}" />
+              <div id="m-datetime-err" class="field-error" style="display:none"></div>
+            </div>
+
+            <div style="grid-column:1/3" class="form-field">
+              <label>Description</label>
+              <textarea id="m-desc">${escapeHtml(schedule? schedule.description : '')}</textarea>
+              <div id="m-desc-err" class="field-error" style="display:none"></div>
+            </div>
           </div>
-          <div>
-            <button onclick="editSchedule(${index})" class="btn-inline">Edit</button>
-            <button onclick="deleteSchedule(${index})" class="btn-inline">Delete</button>
+
+          <div style="display:flex; gap:8px; margin-top:12px; justify-content:flex-end">
+            <button id="m-cancel" class="btn-ghost">Cancel</button>
+            ${schedule ? '<button id="m-delete" class="danger">Delete</button>' : ''}
+            <button id="m-save" class="btn">${schedule ? 'Save changes' : 'Create schedule'}</button>
           </div>
         </div>
-      `;
-      scheduleList.appendChild(li);
+      </div>
+    `;
+
+    // handlers
+    $('m-cancel').addEventListener('click', closeModal);
+    $('m-save').addEventListener('click', ()=>{
+      // inline validation
+      showFieldError('m-company-err',''); showFieldError('m-requesting-err',''); showFieldError('m-responding-err',''); showFieldError('m-datetime-err','');
+      const company = $('m-company').value.trim();
+      const requesting = $('m-requesting').value.trim();
+      const responding = $('m-responding').value.trim();
+      const assignedTo = $('m-assign').value || null;
+      const datetimeInput = $('m-datetime').value;
+      const desc = $('m-desc').value.trim();
+      let ok = true;
+      if(!company){ showFieldError('m-company-err','Company is required'); ok=false; }
+      if(!requesting){ showFieldError('m-requesting-err','Requesting party is required'); ok=false; }
+      if(!responding){ showFieldError('m-responding-err','Responding party is required'); ok=false; }
+      if(datetimeInput && isNaN(new Date(datetimeInput).getTime())){ showFieldError('m-datetime-err','Invalid date/time'); ok=false; }
+      if(!ok) return;
+
+      let arr = LS.get(KEY_SCHED) || [];
+      const datetime = datetimeInput ? new Date(datetimeInput).toISOString() : (schedule ? schedule.datetime : new Date().toISOString());
+
+      if(schedule){
+        arr = arr.map(s => s.id === schedule.id ? Object.assign({}, s, { company, requesting, responding, assignedTo, datetime, description: desc }) : s);
+        LS.set(KEY_SCHED, arr);
+        toast('Schedule updated');
+      } else {
+        arr.unshift({ id: uid(), company, requesting, responding, assignedTo, datetime, description: desc, createdAt: new Date().toISOString() });
+        LS.set(KEY_SCHED, arr);
+        toast('Schedule created');
+      }
+      closeModal(); renderTable();
     });
-  }
 
-  function hasConflict(newSchedule, ignoreIndex = -1) {
-    const newStart = new Date(newSchedule.start);
-    const newEnd = new Date(newSchedule.end);
-    for (let i = 0; i < schedules.length; i++) {
-      if (i === ignoreIndex) continue;
-      const s = schedules[i];
-      if (s.user !== newSchedule.user) continue;
-      const existingStart = new Date(s.start);
-      const existingEnd = new Date(s.end);
-      if (newStart < existingEnd && newEnd > existingStart) {
-        return true;
-      }
+    if(schedule){
+      $('m-delete').addEventListener('click', ()=>{
+        showConfirm('Permanently delete this schedule?', ()=>{
+          let arr = LS.get(KEY_SCHED) || [];
+          arr = arr.filter(s => s.id !== schedule.id); LS.set(KEY_SCHED, arr); renderTable(); toast('Schedule deleted', 'success', 1800);
+        });
+      });
     }
-    return false;
+
+    function closeModal(){
+      modalRoot.style.display = 'none'; modalRoot.innerHTML = ''; clearAllFieldErrors();
+    }
   }
 
-  let editIndex = -1;
-  form.addEventListener('submit', e => {
-    e.preventDefault();
-    errorMsg.textContent = '';
+  // convert ISO to datetime-local value
+  function localDatetimeValue(iso){
+    if(!iso) return '';
+    const d = new Date(iso);
+    const pad = n => String(n).padStart(2,'0');
+    const val = d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+    return val;
+  }
 
-    const newSchedule = {
-      user: userInput.value.trim(),
-      start: startInput.value,
-      end: endInput.value,
+  // show/hide dashboard based on login
+  function showDashboard(){
+    const currentId = LS.get(KEY_CURRENT);
+    const users = LS.get(KEY_USERS) || [];
+    const user = users.find(u => u.id === currentId);
+    if(!user){ return hideDashboard(); }
+    authScreen.style.display = 'none';
+    dashboard.style.display = 'block';
+    currentUserNameEl.textContent = user.name + ' (' + user.email + ')';
+    renderUsers(); renderTable();
+  }
+  function hideDashboard(){
+    dashboard.style.display = 'none'; authScreen.style.display = 'block';
+  }
+
+  // on load
+  window.addEventListener('load', ()=>{
+    const currentId = LS.get(KEY_CURRENT);
+    const users = LS.get(KEY_USERS) || [];
+    if(currentId && users.some(u=>u.id === currentId)){ showDashboard(); } else { hideDashboard(); }
+  });
+
+  // ------------------------
+  // Export / Import JSON
+  // ------------------------
+  function exportJSON(){
+    const data = {
+      users: LS.get(KEY_USERS) || [],
+      schedules: LS.get(KEY_SCHED) || [],
+      currentUser: LS.get(KEY_CURRENT) || null,
+      exportedAt: new Date().toISOString()
     };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const fname = `scheduling-backup-${(new Date()).toISOString().slice(0,19).replace(/[:T]/g,'-')}.json`;
+    downloadBlob(blob, fname);
+    toast('JSON exported');
+  }
 
-    if (!newSchedule.user || !newSchedule.start || !newSchedule.end) {
-      errorMsg.textContent = 'Please fill all fields.';
-      return;
-    }
-
-    if (new Date(newSchedule.end) <= new Date(newSchedule.start)) {
-      errorMsg.textContent = 'End time must be after start time.';
-      return;
-    }
-
-    if (hasConflict(newSchedule, editIndex)) {
-      errorMsg.textContent = 'Schedule conflict detected for this user.';
-      return;
-    }
-
-    if (editIndex === -1) {
-      schedules.push(newSchedule);
-    } else {
-      schedules[editIndex] = newSchedule;
-      editIndex = -1;
-      form.querySelector('button[type="submit"]').textContent = 'Add Schedule';
-    }
-
-    saveSchedules();
-    renderSchedules();
-    form.reset();
-  });
-
-  window.deleteSchedule = function(index) {
-    if (confirm('Delete this schedule?')) {
-      schedules.splice(index, 1);
-      saveSchedules();
-      renderSchedules();
-      if (editIndex === index) {
-        editIndex = -1;
-        form.reset();
-        form.querySelector('button[type="submit"]').textContent = 'Add Schedule';
-        errorMsg.textContent = '';
-      }
-    }
-  };
-
-  window.editSchedule = function(index) {
-    const s = schedules[index];
-    userInput.value = s.user;
-    startInput.value = s.start;
-    endInput.value = s.end;
-    editIndex = index;
-    form.querySelector('button[type="submit"]').textContent = 'Update Schedule';
-    errorMsg.textContent = '';
-  };
-
-  exportBtn.addEventListener('click', () => {
-    const dataStr = JSON.stringify(schedules, null, 2);
-    const blob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'schedules.json';
-    a.click();
-    URL.revokeObjectURL(url);
-  });
-
-  importBtn.addEventListener('click', () => importFileInput.click());
-
-  importFileInput.addEventListener('change', () => {
-    const file = importFileInput.files[0];
-    if (!file) return;
-
+  function importJSONFile(e){
+    const file = e.target.files && e.target.files[0];
+    if(!file) return;
     const reader = new FileReader();
-    reader.onload = e => {
-      try {
-        const imported = JSON.parse(e.target.result);
-        if (!Array.isArray(imported)) {
-          alert('Invalid file format: must be an array.');
-          return;
+    reader.onload = function(ev){
+      try{
+        const parsed = JSON.parse(ev.target.result);
+        if(!parsed || (typeof parsed !== 'object')) throw new Error('Invalid JSON');
+        // ask user: merge or overwrite
+        const mode = confirm('Click OK to MERGE with existing data; Cancel to OVERWRITE existing data.');
+        if(mode){ // merge
+          mergeImportedData(parsed);
+        } else {
+          overwriteImportedData(parsed);
         }
-        schedules = imported;
-        saveSchedules();
-        renderSchedules();
-        form.reset();
-        editIndex = -1;
-        errorMsg.textContent = '';
-        alert('Schedules imported successfully!');
-      } catch (err) {
-        alert('Error reading file: ' + err.message);
+      } catch(err){
+        toast('Invalid JSON file', 'error', 4200);
+      } finally {
+        // reset input
+        $('import-json-file').value = '';
       }
     };
     reader.readAsText(file);
-    importFileInput.value = '';
+  }
+
+  function mergeImportedData(parsed){
+    const existingUsers = LS.get(KEY_USERS) || [];
+    const existingSched = LS.get(KEY_SCHED) || [];
+    const incomingUsers = Array.isArray(parsed.users) ? parsed.users : [];
+    const incomingSched = Array.isArray(parsed.schedules) ? parsed.schedules : [];
+
+    // merge users by email to avoid duplicates
+    const mergedUsers = existingUsers.slice();
+    incomingUsers.forEach(u=>{
+      if(!mergedUsers.some(mu=>mu.email === u.email)){
+        // ensure id present
+        mergedUsers.push(Object.assign({}, u, { id: u.id || uid() }));
+      }
+    });
+
+    // merge schedules by id; if id exists, skip or add with new id
+    const mergedSched = existingSched.slice();
+    incomingSched.forEach(s=>{
+      if(!mergedSched.some(ms=>ms.id === s.id)){
+        mergedSched.push(Object.assign({}, s, { id: s.id || uid() }));
+      } else {
+        // if duplicate ids, skip to avoid collision
+      }
+    });
+
+    LS.set(KEY_USERS, mergedUsers);
+    LS.set(KEY_SCHED, mergedSched);
+    toast('Import merged successfully');
+    renderUsers(); renderTable();
+  }
+
+  function overwriteImportedData(parsed){
+    const incomingUsers = Array.isArray(parsed.users) ? parsed.users : [];
+    const incomingSched = Array.isArray(parsed.schedules) ? parsed.schedules : [];
+    // basic validation
+    if(!Array.isArray(incomingUsers) || !Array.isArray(incomingSched)){
+      toast('Imported JSON must include "users" and "schedules" arrays', 'error', 4200);
+      return;
+    }
+    // ensure ids present
+    const usersWithIds = incomingUsers.map(u => Object.assign({}, u, { id: u.id || uid() }));
+    const schedWithIds = incomingSched.map(s => Object.assign({}, s, { id: s.id || uid() }));
+    LS.set(KEY_USERS, usersWithIds);
+    LS.set(KEY_SCHED, schedWithIds);
+    LS.set(KEY_CURRENT, parsed.currentUser || null);
+    toast('Data overwritten with imported JSON');
+    renderUsers(); renderTable();
+  }
+
+  // ------------------------
+  // CSV export (schedules)
+  // ------------------------
+  function exportCSV(){
+    const schedules = LS.get(KEY_SCHED) || [];
+    const users = LS.get(KEY_USERS) || [];
+    if(!schedules.length){ toast('No schedules to export', 'error', 1600); return; }
+    const header = ['Company','Requesting','Responding','Assigned Name','Assigned Email','Datetime','Description','Created At'];
+    const rows = schedules.map(s=>{
+      const a = users.find(u=>u.id===s.assignedTo) || {};
+      return [s.company||'', s.requesting||'', s.responding||'', a.name||'', a.email||'', s.datetime||'', s.description||'', s.createdAt||''];
+    });
+    const csv = [header, ...rows].map(r => r.map(cell => `"${String(cell || '').replace(/"/g,'""')}"`).join(',')).join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const fname = `schedules-${(new Date()).toISOString().slice(0,19).replace(/[:T]/g,'-')}.csv`;
+    downloadBlob(blob, fname);
+    toast('CSV exported');
+  }
+
+  // ------------------------
+  // ICS export
+  // ------------------------
+  function exportICS(){
+    const schedules = LS.get(KEY_SCHED) || [];
+    const users = LS.get(KEY_USERS) || [];
+    if(!schedules.length){ toast('No schedules to export', 'error', 1600); return; }
+
+    // ICS header
+    let ics = 'BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Local Scheduling System//EN\r\nCALSCALE:GREGORIAN\r\n';
+    schedules.forEach((s,i)=>{
+      const uidv = s.id || ('sched-' + i + '-' + Date.now());
+      const dtstart = s.datetime ? toICSDate(s.datetime) : toICSDate(new Date().toISOString());
+      // assume 1 hour duration by default
+      const dtend = addHoursISO(s.datetime || new Date().toISOString(), 1);
+      const assigned = users.find(u=>u.id===s.assignedTo);
+      const summary = `${s.company || 'Schedule'} — ${s.requesting || ''} → ${s.responding || ''}`;
+      const descLines = [
+        `Description: ${s.description || ''}`,
+        `Assigned: ${assigned ? assigned.name + ' (' + assigned.email + ')' : 'Unassigned'}`,
+        `Created: ${s.createdAt || ''}`
+      ].join('\\n');
+      ics += 'BEGIN:VEVENT\r\n';
+      ics += `UID:${uidv}\r\n`;
+      ics += `DTSTAMP:${toICSDate(new Date().toISOString())}\r\n`;
+      ics += `DTSTART:${dtstart}\r\n`;
+      ics += `DTEND:${toICSDate(dtend)}\r\n`;
+      ics += `SUMMARY:${escapeICSText(summary)}\r\n`;
+      ics += `DESCRIPTION:${escapeICSText(descLines)}\r\n`;
+      ics += `END:VEVENT\r\n`;
+    });
+    ics += 'END:VCALENDAR';
+    const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8;' });
+    const fname = `schedules-${(new Date()).toISOString().slice(0,19).replace(/[:T]/g,'-')}.ics`;
+    downloadBlob(blob, fname);
+    toast('ICS exported');
+  }
+
+  // helpers for ICS
+  function toICSDate(iso){
+    if(!iso) iso = new Date().toISOString();
+    const d = new Date(iso);
+    // produce YYYYMMDDTHHMMSSZ UTC
+    const pad = n => String(n).padStart(2,'0');
+    return d.getUTCFullYear() + pad(d.getUTCMonth()+1) + pad(d.getUTCDate()) + 'T' + pad(d.getUTCHours()) + pad(d.getUTCMinutes()) + pad(d.getUTCSeconds()) + 'Z';
+  }
+  function addHoursISO(iso, hrs){
+    const d = new Date(iso);
+    d.setHours(d.getHours() + hrs);
+    return d.toISOString();
+  }
+  function escapeICSText(s){
+    return (s||'').replace(/\n/g,'\\n').replace(/,/g,'\\,').replace(/;/g,'\\;');
+  }
+
+  // generic download
+  function downloadBlob(blob, filename){
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click();
+    a.remove(); URL.revokeObjectURL(url);
+  }
+
+  // ------------------------
+  // Utility: import file UI
+  // ------------------------
+  // clicking Export JSON triggers actual download; for import, we use hidden file input
+  // The "Export JSON" button also opens a small menu-like behavior: we'll reuse file input for import via context menu
+  // We'll attach double-click / alt-click listeners: simpler -> clicking Export JSON shows prompt for Export or Import
+  $('btn-export-json').addEventListener('click', ()=>{
+    const action = confirm('Press OK to EXPORT JSON. Press Cancel to IMPORT JSON from a file.');
+    if(action){ exportJSON(); }
+    else { $('import-json-file').click(); }
   });
 
-  loadSchedules();
-  renderSchedules();
-</script>
+  // ------------------------
+  // Confirm helper (already used above)
+  // ------------------------
 
+  // Download and import utilities finished.
+
+  // ------------------------
+  // Small confirm alert fallback: if you want nicer, we've implemented modal confirm above
+  // ------------------------
+
+  // ------------------------
+  // Helpers and startup
+  // ------------------------
+  function mergeByEmail(existing, incoming){
+    const out = existing.slice();
+    incoming.forEach(u=>{
+      if(!out.some(x=>x.email === u.email)) out.push(u);
+    });
+    return out;
+  }
+
+  // on page initial
+  renderUsers(); renderTable();
+
+  // small confirm style for global use is showConfirm function above
+
+  // utility to show simple browser prompt (used rarely)
+  function simpleConfirm(msg){ return confirm(msg); }
+
+})();
+</script>
 </body>
 </html>
